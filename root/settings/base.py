@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 
 import os
 import environ
+from oscar.defaults import *
+from oscar import OSCAR_MAIN_TEMPLATE_DIR, get_core_apps
+
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 from django.core.urlresolvers import reverse_lazy
@@ -35,8 +38,10 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = env('ALLOWED_HOSTS')
-ALLOWED_HOSTS = ALLOWED_HOSTS.split(',') if ALLOWED_HOSTS else []
+
+ALLOWED_HOSTS = ["*"]
+# ALLOWED_HOSTS = env('ALLOWED_HOSTS')
+# ALLOWED_HOSTS = ALLOWED_HOSTS.split(',') if ALLOWED_HOSTS else []
 
 # Application definition
 
@@ -49,6 +54,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # The Django sites framework is required
     'django.contrib.sites',
+    'django.contrib.flatpages',
 
     'django_extensions',
     'django_otp',
@@ -65,7 +71,10 @@ INSTALLED_APPS = [
 
     'accounts',
     'common',
-]
+    'compressor',
+    'widget_tweaks',
+    'kathyshop.'
+] + get_core_apps()
 
 MIDDLEWARE_CLASSES = [
     'django.middleware.security.SecurityMiddleware',
@@ -77,6 +86,9 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'oscar.apps.basket.middleware.BasketMiddleware',
+    'django.contrib.flatpages.middleware.FlatpageFallbackMiddleware',
 ]
 
 ROOT_URLCONF = 'root.urls'
@@ -84,7 +96,9 @@ ROOT_URLCONF = 'root.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates'],
+        'DIRS': ['templates/oscar',
+                 OSCAR_MAIN_TEMPLATE_DIR
+                 ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -93,6 +107,12 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'common.context_processors.site_name',
+
+                'oscar.apps.search.context_processors.search_form',
+                'oscar.apps.promotions.context_processors.promotions',
+                'oscar.apps.checkout.context_processors.checkout',
+                'oscar.apps.customer.notifications.context_processors.notifications',
+                'oscar.core.context_processors.metadata',
             ],
         },
     },
@@ -106,6 +126,11 @@ WSGI_APPLICATION = 'root.wsgi.application'
 DATABASES = {
     'default': env.db()
 }
+
+AUTHENTICATION_BACKENDS = (
+    'oscar.apps.customer.auth_backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+)
 
 # Password validation
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
@@ -140,8 +165,14 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
+DJANGO_ROOT = BASE_DIR
 STATIC_ROOT = 'static'
 STATIC_URL = '/static/'
+
+MEDIA_URL = '/images/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'images/')
+#MEDIA_ROOT = 'images'
+
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -155,7 +186,33 @@ LOGIN_ERROR_URL = reverse_lazy('two_factor:login')
 LOGIN_REDIRECT_URL = reverse_lazy('accounts:profile')
 
 vars().update(env.email(backend='djcelery_email.backends.CeleryEmailBackend'))
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+#DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_EMAIL_REQUIRED = True
+
+
+HAYSTACK_CONNECTIONS = {
+    'default': {
+        'ENGINE': 'haystack.backends.simple_backend.SimpleEngine',
+    },
+}
+
+# HAYSTACK_CONNECTIONS = {
+#     'default': {
+#         'ENGINE': 'haystack.backends.solr_backend.SolrEngine',
+#         'URL': 'http://127.0.0.1:8983/solr',
+#         'INCLUDE_SPELLING': True,
+#     },
+# }
+
+
+OSCAR_INITIAL_ORDER_STATUS = 'Pending'
+OSCAR_INITIAL_LINE_STATUS = 'Pending'
+OSCAR_ORDER_STATUS_PIPELINE = {
+    'Pending': ('Being processed', 'Cancelled',),
+    'Being processed': ('Processed', 'Cancelled',),
+    'Cancelled': (),
+}
+
+LANGUAGE_CODE = 'en_US'
